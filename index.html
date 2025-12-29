@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>License Admin</title>
+  <style>
+    body{margin:0;font-family:system-ui;background:#0b0f14;color:#fff}
+    header{padding:18px 22px;background:#0f172a;border-bottom:1px solid rgba(255,255,255,.06)}
+    .wrap{max-width:1100px;margin:0 auto;padding:22px}
+    .card{background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;margin-top:16px}
+    input{width:100%;padding:12px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#0b1220;color:#fff}
+    button{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:#1f2937;color:#fff;cursor:pointer}
+    button.primary{background:#2563eb}
+    button.good{background:#16a34a}
+    button.bad{background:#dc2626}
+    .row{display:grid;grid-template-columns: 1.2fr 1.2fr .6fr;gap:10px;align-items:center}
+    .row2{display:grid;grid-template-columns: 1fr 1fr;gap:10px}
+    .muted{color:#a7b0bf;font-size:12px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;font-size:14px}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid rgba(255,255,255,.12)}
+    .on{background:rgba(22,163,74,.15);border-color:rgba(22,163,74,.4)}
+    .off{background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4)}
+    .right{display:flex;gap:8px;justify-content:flex-end}
+    #status{margin-top:10px}
+  </style>
+</head>
+<body>
+<header><b>License Admin</b></header>
+
+<div class="wrap">
+  <div class="card" id="loginCard">
+    <h3 style="margin:0 0 12px">관리자 로그인</h3>
+    <div class="row">
+      <input id="email" placeholder="admin email" />
+      <input id="pw" type="password" placeholder="password" />
+      <button class="primary" id="btnLogin">로그인</button>
+    </div>
+    <div class="muted" style="margin-top:8px">※ Email/Password 로그인 (구글로그인 불필요)</div>
+    <div id="status" class="muted"></div>
+  </div>
+
+  <div class="card" id="panel" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <h3 style="margin:0">라이선스 제어</h3>
+      <div class="right">
+        <span id="who" class="muted"></span>
+        <button id="btnLogout">로그아웃</button>
+      </div>
+    </div>
+
+    <div class="row2" style="margin-top:12px">
+      <div>
+        <div class="muted">라이선스 코드</div>
+        <input id="code" placeholder="예: TEST-0001" />
+      </div>
+      <div>
+        <div class="muted">메모(선택)</div>
+        <input id="memo" placeholder="예: 테스트 라이선스" />
+      </div>
+    </div>
+
+    <div class="right" style="margin-top:12px">
+      <button class="good" id="btnAllow">허용(allowed=true)</button>
+      <button class="bad" id="btnBlock">차단(allowed=false)</button>
+    </div>
+
+    <h4 style="margin:18px 0 8px">현재 licenses 목록</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>code</th>
+          <th>allowed</th>
+          <th>deviceId</th>
+          <th>memo</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Firebase compat SDK (번들/빌드 없이 바로 동작) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+<script src="./admin.js"></script>
+</body>
+</html>
+
