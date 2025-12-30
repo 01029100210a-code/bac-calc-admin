@@ -110,7 +110,7 @@ async function upsertLicense(allowedValue) {
 
 $("btnAllow").onclick = () => upsertLicense(true);
 $("btnBlock").onclick = () => upsertLicense(false);
-$("btnBlock").onclick = () => updateLicense(false);
+
 
 
 
