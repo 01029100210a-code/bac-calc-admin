@@ -1,6 +1,4 @@
-// ======================
-// Firebase 설정 (너 프로젝트 값 유지)
-// ======================
+// 1) Firebase 콘솔(프로젝트 설정 > 웹앱)에서 복붙한 값
 const firebaseConfig = {
   apiKey: "AIzaSyAzPncSA_r-dzdRVAfTXEXWG0RXgH4CMwQ",
   authDomain: "bac-calc-control.firebaseapp.com",
@@ -16,13 +14,17 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 const $ = (id) => document.getElementById(id);
+
 function setStatus(msg) { $("status").textContent = msg || ""; }
 
-function normalizeCode(raw) {
-  return (raw || "").trim().toUpperCase().replace(/\s+/g, "");
+function normalizeCode(codeRaw) {
+  return (codeRaw || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
 }
 
-function fmtTime(ts) {
+function fmtTs(ts) {
   if (!ts) return "";
   try {
     const d = ts.toDate ? ts.toDate() : new Date(ts);
@@ -32,24 +34,13 @@ function fmtTime(ts) {
   }
 }
 
-// lastSeen 기준 "2분 이내면 ON"
-function isOnline(lastSeen) {
-  if (!lastSeen || !lastSeen.toDate) return false;
-  const ms = Date.now() - lastSeen.toDate().getTime();
-  return ms <= 2 * 60 * 1000;
-}
+// 접속 ON/OFF 기준(밀리초): lastSeen이 이 시간 이내면 ON
+const ONLINE_WINDOW_MS = 2 * 60 * 1000; // 2분
 
-// ======================
-// 로그인/로그아웃
-// ======================
 $("btnLogin").onclick = async () => {
   const email = $("email").value.trim();
   const pw = $("pw").value;
-
-  if (!email || !pw) {
-    setStatus("이메일/비밀번호를 입력하세요.");
-    return;
-  }
+  if (!email || !pw) return setStatus("이메일/비밀번호를 입력하세요.");
 
   try {
     setStatus("로그인 시도 중...");
@@ -62,21 +53,13 @@ $("btnLogin").onclick = async () => {
   }
 };
 
-$("btnLogout").onclick = async () => {
-  await auth.signOut();
-};
-
-// ======================
-// 인증 상태 변화
-// ======================
-let unsub = null;
+$("btnLogout").onclick = async () => auth.signOut();
 
 auth.onAuthStateChanged((user) => {
   if (!user) {
     $("loginCard").style.display = "block";
     $("panel").style.display = "none";
     $("who").textContent = "";
-    if (unsub) { unsub(); unsub = null; }
     return;
   }
 
@@ -84,167 +67,160 @@ auth.onAuthStateChanged((user) => {
   $("panel").style.display = "block";
   $("who").textContent = `${user.email} (uid: ${user.uid})`;
 
-  // 실시간 목록 구독
-  if (unsub) unsub();
-  unsub = db.collection("licenses").orderBy("updatedAt", "desc").onSnapshot((snap) => {
-    const rows = [];
-    snap.forEach((doc) => {
-      const d = doc.data() || {};
-      const allowed = !!d.allowed;
-      const online = isOnline(d.lastSeen);
+  // 실시간 목록
+  db.collection("licenses")
+    .orderBy("updatedAt", "desc")
+    .onSnapshot((snap) => {
+      const now = Date.now();
+      const rows = [];
 
-      rows.push(`
-        <tr>
-          <td class="mono"><b>${doc.id}</b></td>
-          <td>
-            <span class="pill ${allowed ? "badgeOn" : "badgeOff"}">
-              <span class="dot ${allowed ? "on" : "off"}"></span>
-              ${allowed ? "true" : "false"}
-            </span>
-          </td>
-          <td>
-            <span class="pill">
-              <span class="dot ${online ? "on" : "off"}"></span>
-              ${online ? "ON" : "OFF"}
-            </span>
-          </td>
-          <td>${(d.userName || "")}</td>
-          <td class="muted mono">${(d.deviceId || "")}</td>
-          <td class="muted mono">${(d.ip || "")}</td>
-          <td class="muted">${(d.memo || "")}</td>
-          <td class="muted">${fmtTime(d.lastSeen)}</td>
-          <td>
-            <button class="smallBtn btnAccent" data-fill="${doc.id}">불러오기</button>
-            <button class="smallBtn btnGood" data-allow="${doc.id}">허용</button>
-            <button class="smallBtn btnBad" data-block="${doc.id}">차단</button>
-          </td>
-        </tr>
-      `);
-    });
-
-    $("tbody").innerHTML = rows.join("") || `<tr><td colspan="9" class="muted">데이터 없음</td></tr>`;
-
-    // 행 버튼 이벤트(이벤트 위임)
-    $("tbody").onclick = async (ev) => {
-      const t = ev.target;
-      if (!(t instanceof HTMLElement)) return;
-
-      const codeFill = t.getAttribute("data-fill");
-      const codeAllow = t.getAttribute("data-allow");
-      const codeBlock = t.getAttribute("data-block");
-
-      if (codeFill) {
-        const doc = await db.collection("licenses").doc(codeFill).get();
+      snap.forEach((doc) => {
         const d = doc.data() || {};
-        $("code").value = codeFill;
-        $("userName").value = d.userName || "";
-        $("memo").value = d.memo || "";
-      }
+        const allowed = !!d.allowed;
 
-      if (codeAllow) {
-        await setAllowed(codeAllow, true);
-      }
+        const lastSeen = d.lastSeen || null;
+        const lastSeenMs = lastSeen?.toDate ? lastSeen.toDate().getTime() : 0;
+        const online = lastSeenMs && (now - lastSeenMs <= ONLINE_WINDOW_MS);
 
-      if (codeBlock) {
-        await setAllowed(codeBlock, false);
-      }
-    };
-  });
+        rows.push(`
+          <tr>
+            <td><b>${doc.id}</b></td>
+            <td><span class="pill ${allowed ? "on" : "off"}">${allowed}</span></td>
+            <td><span class="pill ${online ? "live" : "off"}">${online ? "ON" : "OFF"}</span></td>
+            <td class="muted">${d.userName || ""}</td>
+            <td class="muted">${d.deviceId || ""}</td>
+            <td class="muted">${d.memo || ""}</td>
+            <td class="muted">${fmtTs(d.lastSeen)}</td>
+          </tr>
+        `);
+      });
+
+      $("tbody").innerHTML = rows.join("") || `<tr><td colspan="7" class="muted">데이터 없음</td></tr>`;
+    });
 });
 
-// ======================
-// 핵심 동작: 발급/저장(upsert)
-// ======================
-async function issueOrSave() {
+// ✅ 발급(생성): 문서가 없으면 만들고, 있으면 값 갱신
+async function issueLicense() {
   const code = normalizeCode($("code").value);
-  const userName = $("userName").value.trim();
-  const memo = $("memo").value.trim();
+  const userName = ($("userName").value || "").trim();
+  const memo = ($("memo").value || "").trim();
 
   if (!code) return alert("라이선스 코드를 입력하세요.");
   if (!userName) return alert("유저 이름을 입력하세요.");
 
+  const ref = db.collection("licenses").doc(code);
+
   try {
-    const ref = db.collection("licenses").doc(code);
+    // createdAt은 "최초 생성"에만 넣고 싶으면 get()로 존재 여부 확인
+    const snap = await ref.get();
+    const exists = snap.exists;
 
-    // 문서 없으면 생성, 있으면 업데이트(merge)
-    await ref.set({
-      allowed: true,                 // 기본 발급은 허용 true
-      userName: userName,
-      memo: memo || "",
-      // deviceId/ip/lastSeen은 앱에서 채움(여기선 건드리지 않음)
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    const payload = {
+      allowed: true,                 // 발급 시 기본 허용
+      userName,
+      memo,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    };
 
+    if (!exists) {
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      payload.deviceId = "";         // 앱이 바인딩하면 채움
+      // lastSeen/ip는 앱이 업데이트(또는 Cloud Function)로 채우는 게 정상
+      payload.lastSeen = null;
+      payload.ip = "";
+    }
+
+    await ref.set(payload, { merge: true });
+
+    $("code").value = code; // 입력칸도 대문자 반영
+    alert(`발급 완료: ${code} (allowed=true)`);
+  } catch (e) {
+    console.error(e);
+    alert("발급 실패:\n" + (e?.message || e));
+  }
+}
+
+// ✅ 허용/차단: 문서가 없으면 생성까지 해줌(merge=true)
+async function setAllowed(value) {
+  const code = normalizeCode($("code").value);
+  const userName = ($("userName").value || "").trim();
+  const memo = ($("memo").value || "").trim();
+  if (!code) return alert("라이선스 코드를 입력하세요.");
+
+  const ref = db.collection("licenses").doc(code);
+
+  try {
+    const snap = await ref.get();
+    const exists = snap.exists;
+
+    const payload = {
+      allowed: !!value,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    if (memo) payload.memo = memo;
+    if (userName) payload.userName = userName;
+
+    if (!exists) {
+      // 새로 만드는 경우 기본 필드까지
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      payload.deviceId = "";
+      payload.lastSeen = null;
+      payload.ip = "";
+    }
+
+    await ref.set(payload, { merge: true });
     $("code").value = code;
-    alert(`발급/저장 완료: ${code}`);
+    alert(`완료: ${code} → allowed=${value}`);
   } catch (e) {
     console.error(e);
     alert("실패:\n" + (e?.message || e));
   }
 }
 
-// allowed만 변경
-async function setAllowed(codeRaw, allowedValue) {
-  const code = normalizeCode(codeRaw);
-  if (!code) return alert("코드가 비었습니다.");
-
-  try {
-    const ref = db.collection("licenses").doc(code);
-    // 문서 없으면 만들고 allowed 세팅까지
-    await ref.set({
-      allowed: allowedValue,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-
-    alert(`완료: ${code} → allowed=${allowedValue}`);
-  } catch (e) {
-    console.error(e);
-    alert("실패:\n" + (e?.message || e));
-  }
-}
-
-// 토글(현재 값 읽어서 반대로)
+// ✅ 토글(허용<->차단)
 async function toggleAllowed() {
   const code = normalizeCode($("code").value);
-  if (!code) return alert("토글할 코드를 입력/불러오기 하세요.");
+  if (!code) return alert("라이선스 코드를 입력하세요.");
+
+  const ref = db.collection("licenses").doc(code);
 
   try {
-    const ref = db.collection("licenses").doc(code);
-    const snap = await ref.get();
-    if (!snap.exists) return alert("해당 코드 문서가 없습니다. 먼저 발급/저장 하세요.");
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const cur = snap.exists ? !!(snap.data() || {}).allowed : false;
+      const next = !cur;
 
-    const cur = !!(snap.data() || {}).allowed;
-    await ref.update({
-      allowed: !cur,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      if (!snap.exists) {
+        tx.set(ref, {
+          allowed: next,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          deviceId: "",
+          userName: ($("userName").value || "").trim() || "",
+          memo: ($("memo").value || "").trim() || "",
+          lastSeen: null,
+          ip: ""
+        }, { merge: true });
+      } else {
+        tx.set(ref, {
+          allowed: next,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
     });
 
-    alert(`토글 완료: ${code} → allowed=${!cur}`);
+    alert(`토글 완료: ${code}`);
   } catch (e) {
     console.error(e);
-    alert("실패:\n" + (e?.message || e));
+    alert("토글 실패:\n" + (e?.message || e));
   }
 }
 
-// ======================
-// 버튼 연결
-// ======================
-$("btnIssue").onclick = issueOrSave;
-
-$("btnAllow").onclick = async () => {
-  const code = normalizeCode($("code").value);
-  if (!code) return alert("코드를 입력하세요.");
-  await setAllowed(code, true);
-};
-
-$("btnBlock").onclick = async () => {
-  const code = normalizeCode($("code").value);
-  if (!code) return alert("코드를 입력하세요.");
-  await setAllowed(code, false);
-};
-
+$("btnIssue").onclick = issueLicense;
+$("btnAllow").onclick = () => setAllowed(true);
+$("btnBlock").onclick = () => setAllowed(false);
 $("btnToggle").onclick = toggleAllowed;
+
 
 
 
