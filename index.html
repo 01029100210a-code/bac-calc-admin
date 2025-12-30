@@ -4,89 +4,153 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>License Admin</title>
+
+  <!-- Firebase v8 (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
   <style>
-    body{margin:0;font-family:system-ui;background:#0b0f14;color:#fff}
-    header{padding:18px 22px;background:#0f172a;border-bottom:1px solid rgba(255,255,255,.06)}
-    .wrap{max-width:1100px;margin:0 auto;padding:22px}
-    .card{background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;margin-top:16px}
-    input{width:100%;padding:12px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#0b1220;color:#fff}
-    button{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:#1f2937;color:#fff;cursor:pointer}
-    button.primary{background:#2563eb}
-    button.good{background:#16a34a}
-    button.bad{background:#dc2626}
-    .row{display:grid;grid-template-columns: 1.2fr 1.2fr .6fr;gap:10px;align-items:center}
-    .row2{display:grid;grid-template-columns: 1fr 1fr;gap:10px}
-    .muted{color:#a7b0bf;font-size:12px}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;font-size:14px}
-    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid rgba(255,255,255,.12)}
-    .on{background:rgba(22,163,74,.15);border-color:rgba(22,163,74,.4)}
-    .off{background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4)}
-    .right{display:flex;gap:8px;justify-content:flex-end}
-    #status{margin-top:10px}
+    :root{
+      --bg:#070b12; --panel:#0b1325; --card:#0e1a33;
+      --line:rgba(255,255,255,.08);
+      --text:#e8eefc; --muted:rgba(232,238,252,.65);
+      --accent:#4aa3ff; --good:#18b66a; --bad:#f04444; --warn:#f0c244;
+    }
+    *{box-sizing:border-box; font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Malgun Gothic,sans-serif;}
+    body{margin:0; background:radial-gradient(1200px 600px at 50% -10%, #111c3a 0%, var(--bg) 55%); color:var(--text);}
+    header{padding:16px 20px; border-bottom:1px solid var(--line); background:rgba(5,9,16,.7); position:sticky; top:0; backdrop-filter:blur(10px);}
+    header .title{font-weight:800; letter-spacing:.2px;}
+    main{max-width:1100px; margin:28px auto; padding:0 16px;}
+    .card{background:linear-gradient(180deg, rgba(14,26,51,.92), rgba(11,19,37,.92)); border:1px solid var(--line); border-radius:16px; padding:18px; box-shadow:0 10px 40px rgba(0,0,0,.35);}
+    .row{display:flex; gap:12px; flex-wrap:wrap;}
+    .row > *{flex:1;}
+    .h2{font-size:18px; font-weight:800; margin:0 0 12px;}
+    .muted{color:var(--muted); font-size:13px;}
+    input{width:100%; padding:12px 12px; border-radius:12px; border:1px solid var(--line); background:rgba(0,0,0,.25); color:var(--text); outline:none;}
+    input:focus{border-color:rgba(74,163,255,.55); box-shadow:0 0 0 3px rgba(74,163,255,.15);}
+    button{padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text); cursor:pointer; font-weight:700;}
+    button:hover{background:rgba(255,255,255,.10);}
+    .btnGood{background:rgba(24,182,106,.18); border-color:rgba(24,182,106,.35);}
+    .btnBad{background:rgba(240,68,68,.18); border-color:rgba(240,68,68,.35);}
+    .btnAccent{background:rgba(74,163,255,.18); border-color:rgba(74,163,255,.35);}
+    .topbar{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;}
+    .who{font-size:13px; color:var(--muted);}
+    .tableWrap{overflow:auto; border-radius:14px; border:1px solid var(--line);}
+    table{width:100%; border-collapse:collapse; min-width:920px; background:rgba(0,0,0,.12);}
+    th,td{padding:12px 12px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle;}
+    th{font-size:12px; color:var(--muted); font-weight:800; background:rgba(255,255,255,.03);}
+    tr:hover td{background:rgba(255,255,255,.03);}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:800; font-size:12px; border:1px solid var(--line); background:rgba(255,255,255,.04);}
+    .dot{width:9px; height:9px; border-radius:999px; background:var(--muted);}
+    .dot.on{background:var(--good);}
+    .dot.off{background:rgba(255,255,255,.28);}
+    .badgeOn{border-color:rgba(24,182,106,.35); background:rgba(24,182,106,.12);}
+    .badgeOff{border-color:rgba(240,68,68,.35); background:rgba(240,68,68,.12);}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px;}
+    .right{display:flex; gap:10px; align-items:center; justify-content:flex-end; flex-wrap:wrap;}
+    .status{margin-top:10px; color:var(--warn); font-weight:700;}
+    .smallBtn{padding:8px 10px; border-radius:10px; font-weight:800; font-size:12px;}
   </style>
 </head>
+
 <body>
-<header><b>License Admin</b></header>
+<header>
+  <div class="title">License Admin</div>
+</header>
 
-<div class="wrap">
-  <div class="card" id="loginCard">
-    <h3 style="margin:0 0 12px">관리자 로그인</h3>
+<main>
+  <!-- 로그인 카드 -->
+  <section id="loginCard" class="card">
+    <div class="h2">관리자 로그인</div>
     <div class="row">
-      <input id="email" placeholder="admin email" />
-      <input id="pw" type="password" placeholder="password" />
-      <button class="primary" id="btnLogin">로그인</button>
+      <div>
+        <input id="email" placeholder="admin email" autocomplete="username" />
+      </div>
+      <div>
+        <input id="pw" type="password" placeholder="password" autocomplete="current-password" />
+      </div>
+      <div style="flex:0.5">
+        <button id="btnLogin" class="btnAccent" style="width:100%">로그인</button>
+      </div>
     </div>
-    <div class="muted" style="margin-top:8px">※ Email/Password 로그인 (구글로그인 불필요)</div>
-    <div id="status" class="muted"></div>
-  </div>
+    <div class="muted" style="margin-top:8px;">※ Email/Password 로그인만 사용</div>
+    <div id="status" class="status"></div>
+  </section>
 
-  <div class="card" id="panel" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <h3 style="margin:0">라이선스 제어</h3>
+  <!-- 패널 -->
+  <section id="panel" class="card" style="display:none; margin-top:16px;">
+    <div class="topbar">
+      <div>
+        <div class="h2" style="margin:0;">라이선스 제어</div>
+        <div class="who" id="who"></div>
+      </div>
       <div class="right">
-        <span id="who" class="muted"></span>
         <button id="btnLogout">로그아웃</button>
       </div>
     </div>
 
-    <div class="row2" style="margin-top:12px">
+    <!-- 발급/수정 폼 -->
+    <div class="row">
       <div>
-        <div class="muted">라이선스 코드</div>
+        <div class="muted">라이선스 코드 (직접 입력)</div>
         <input id="code" placeholder="예: TEST-0001" />
       </div>
       <div>
-        <div class="muted">메모(선택)</div>
-        <input id="memo" placeholder="예: 테스트 라이선스" />
+        <div class="muted">유저 이름</div>
+        <input id="userName" placeholder="예: 홍길동" />
       </div>
     </div>
 
-    <div class="right" style="margin-top:12px">
-      <button class="good" id="btnAllow">허용(allowed=true)</button>
-      <button class="bad" id="btnBlock">차단(allowed=false)</button>
+    <div class="row" style="margin-top:10px;">
+      <div>
+        <div class="muted">메모(선택)</div>
+        <input id="memo" placeholder="예: VIP / 단기 / 기타" />
+      </div>
+      <div style="flex:0.6">
+        <div class="muted">&nbsp;</div>
+        <div class="right">
+          <button id="btnIssue" class="btnAccent">발급/저장</button>
+          <button id="btnToggle" class="btnGood">허용/차단 토글</button>
+          <button id="btnAllow" class="btnGood">허용(allowed=true)</button>
+          <button id="btnBlock" class="btnBad">차단(allowed=false)</button>
+        </div>
+      </div>
     </div>
 
-    <h4 style="margin:18px 0 8px">현재 licenses 목록</h4>
-    <table>
-      <thead>
-        <tr>
-          <th>code</th>
-          <th>allowed</th>
-          <th>deviceId</th>
-          <th>memo</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-</div>
+    <div class="muted" style="margin-top:10px;">
+      - “발급/저장”은 문서가 없으면 생성, 있으면 정보 갱신합니다. <br/>
+      - 접속(ON/OFF)은 lastSeen 기준(2분 이내 ON)입니다.
+    </div>
 
-<!-- Firebase compat SDK (번들/빌드 없이 바로 동작) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+    <!-- 목록 -->
+    <div style="margin-top:16px;" class="h2">현재 licenses 목록</div>
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>code</th>
+            <th>allowed</th>
+            <th>접속</th>
+            <th>userName</th>
+            <th>deviceId</th>
+            <th>ip</th>
+            <th>memo</th>
+            <th>lastSeen</th>
+            <th>액션</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="9" class="muted">로딩 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
 
 <script src="./admin.js"></script>
 </body>
 </html>
+
+
 
