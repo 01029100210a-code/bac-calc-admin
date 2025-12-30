@@ -72,38 +72,45 @@ auth.onAuthStateChanged((user) => {
   });
 });
 
-async function updateLicense(allowedValue) {
-  const code = $("code").value.trim();
+async function upsertLicense(allowedValue) {
+  const codeRaw = $("code").value.trim();
   const memo = $("memo").value.trim();
 
-  if (!code) {
+  if (!codeRaw) {
     alert("라이선스 코드를 입력하세요.");
     return;
   }
 
+  // ✅ 코드 통일(권장): 대문자 + 공백 제거
+  const code = codeRaw.toUpperCase().replace(/\s+/g, "");
+
   try {
     const ref = db.collection("licenses").doc(code);
 
-    // ✅ 없으면 생성, 있으면 업데이트(merge)
+    // ✅ 문서가 없으면 생성, 있으면 필요한 필드만 갱신
     await ref.set(
       {
         allowed: allowedValue,
-        memo: memo,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        // 처음 생성 시 비어있게 두고 앱이 최초 실행 때 바인딩하도록
+        memo: memo || "",
+        // deviceId는 앱이 최초 바인딩 시 채우는 용도라면 비워둠
         deviceId: "",
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(), // 최초 생성에도 들어가게(merge라 중복 괜찮)
       },
       { merge: true }
     );
 
     alert(`완료: ${code} → allowed=${allowedValue}`);
+    $("code").value = code; // 입력칸도 대문자 반영
   } catch (e) {
     console.error(e);
     alert("실패:\n" + (e?.message || e));
   }
 }
 
-$("btnAllow").onclick = () => updateLicense(true);
+$("btnAllow").onclick = () => upsertLicense(true);
+$("btnBlock").onclick = () => upsertLicense(false);
 $("btnBlock").onclick = () => updateLicense(false);
+
 
 
