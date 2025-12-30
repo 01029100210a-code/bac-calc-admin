@@ -84,15 +84,17 @@ async function updateLicense(allowedValue) {
   try {
     const ref = db.collection("licenses").doc(code);
 
-    // 문서가 없으면 set()로 생성까지 하고 싶다면 아래 주석 해제:
-    // await ref.set({ allowed: allowedValue, memo: memo, deviceId: "" }, { merge: true });
-
-    // 기존 문서가 있어야만 update() 가능 (지금은 이 방식)
-    await ref.update({
-      allowed: allowedValue,
-      memo: memo,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    // ✅ 없으면 생성, 있으면 업데이트(merge)
+    await ref.set(
+      {
+        allowed: allowedValue,
+        memo: memo,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        // 처음 생성 시 비어있게 두고 앱이 최초 실행 때 바인딩하도록
+        deviceId: "",
+      },
+      { merge: true }
+    );
 
     alert(`완료: ${code} → allowed=${allowedValue}`);
   } catch (e) {
@@ -103,4 +105,5 @@ async function updateLicense(allowedValue) {
 
 $("btnAllow").onclick = () => updateLicense(true);
 $("btnBlock").onclick = () => updateLicense(false);
+
 
